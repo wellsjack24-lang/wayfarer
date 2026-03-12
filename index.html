@@ -125,7 +125,7 @@ ${bookings?`\nCONFIRMED BOOKINGS (use exact flight numbers, hotel names, confirm
 Return ONLY valid JSON array, no markdown:
 [{"id":<int>,"date":"<Jul 3>","dayName":"<Monday>","label":"<ARRIVE|EXPLORE|BEACH|etc>","headline":"<5-8 word title>","color":"<rich hex>","emoji":"<emoji>","places":["p1","p2"],"sections":[{"kind":"logistics|morning|afternoon|evening|dining","title":"Section title","icon":"emoji","items":[{"name":"...","time":"...","body":"2-3 vivid sentences.","tip":"insider tip","must":"dining: must-order","address":"real address","phone":"","url":"https://...","booking":"booking urgency"}]}]}]
 Logistics items use: [{"label":"Key","value":"Info"}]`
-  }],"",4500);
+  }],"",3000);
   try { return JSON.parse(text.replace(/```json|```/g,"").trim()); }
   catch { return null; }
 }
