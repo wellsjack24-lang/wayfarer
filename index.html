@@ -68,7 +68,6 @@ const { useState, useRef, useCallback, useEffect } = React;
 /* ══════════════════════════════════════════════════
    ★  CONFIGURATION — fill these in before deploying
 ══════════════════════════════════════════════════ */
-const ANTHROPIC_API_KEY = "YOUR_ANTHROPIC_API_KEY";
 const SB_URL            = "YOUR_SUPABASE_URL";         // https://xxx.supabase.co
 const SB_KEY            = "YOUR_SUPABASE_ANON_KEY";    // eyJhbGci...
 
@@ -522,7 +521,6 @@ function BuildForm({prefill,onGenerate}){
   const nights=basics.startDate&&basics.endDate?Math.max(0,Math.round((new Date(basics.endDate)-new Date(basics.startDate))/86400000)):0;
 
   const generate=async()=>{
-    if(ANTHROPIC_API_KEY==="YOUR_ANTHROPIC_API_KEY"){setError("Add your Anthropic API key at the top of this HTML file.");return;}
     setLoading(true);setError("");
     const days=await generateItinerary(basics,details);
     if(!days){setError("Couldn't generate itinerary — check your API key and try again.");setLoading(false);return;}
