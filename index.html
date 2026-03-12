@@ -1,0 +1,877 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Wayfarer — AI Travel Planner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400;1,600&family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet"/>
+<style>
+:root{--cream:#F7F3ED;--paper:#EEE8DF;--ink:#1C1814;--inkl:#4A4540;--inkf:#9A928A;
+      --gold:#B8892A;--goldt:#D4A84B;--rust:#C0522A;--sage:#4A7055;
+      --bdr:#D8D0C4;--bdrl:#E8E2DA;--white:#FFFFFF;}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;}
+body{background:var(--cream);color:var(--ink);font-family:'Cormorant Garamond',Georgia,serif;}
+input,textarea,select,button{font-family:inherit;}
+::selection{background:var(--goldt);color:var(--ink);}
+::-webkit-scrollbar{width:5px;height:5px;}
+::-webkit-scrollbar-track{background:var(--paper);}// netlify/functions/claude.js
+// Proxies all Anthropic API calls — keeps the key server-side, fixes CORS.
+// Set ANTHROPIC_API_KEY in Netlify → Site Settings → Environment Variables.
+
+exports.handler = async (event) => {
+  if (event.httpMethod !== "POST") {
+    return { statusCode: 405, body: "Method Not Allowed" };
+  }
+
+  try {
+    const body = JSON.parse(event.body);
+
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": process.env.ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify(body),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      return {
+        statusCode: response.status,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ error: data }),
+      };
+    }
+
+    const text = data.content?.[0]?.text ?? "";
+
+    return {
+      statusCode: 200,
+      headers: {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+      },
+      body: JSON.stringify({ text }),
+    };
+  } catch (err) {
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ error: err.message }),
+    };
+  }
+};
+
+::-webkit-scrollbar-thumb{background:var(--bdr);border-radius:3px;}
+#root{min-height:100%;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes spin{to{transform:rotate(360deg)}}
+.fu{animation:fadeUp .4s ease forwards;}
+.fi{animation:fadeIn .3s ease forwards;}
+.spin{display:inline-block;width:16px;height:16px;border:2px solid var(--bdr);border-top-color:var(--gold);border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;}
+.btn-p{background:var(--ink);color:var(--cream);border:none;border-radius:4px;padding:12px 24px;cursor:pointer;font-size:15px;letter-spacing:.3px;transition:background .2s;}
+.btn-p:hover:not(:disabled){background:var(--inkl);}
+.btn-p:disabled{background:var(--bdr);color:var(--inkf);cursor:not-allowed;}
+.btn-g{background:transparent;border:1px solid var(--bdr);border-radius:4px;padding:8px 16px;cursor:pointer;font-size:13px;color:var(--inkl);transition:all .2s;}
+.btn-g:hover{border-color:var(--ink);color:var(--ink);}
+.inp{width:100%;background:var(--white);border:1px solid var(--bdr);border-radius:4px;padding:9px 13px;font-size:14px;color:var(--ink);outline:none;transition:border-color .2s;}
+.inp:focus{border-color:var(--gold);}
+.inp::placeholder{color:var(--inkf);}
+.inp-sm{padding:7px 11px;font-size:13px;}
+.tag{display:inline-block;font-size:11px;padding:4px 12px;border-radius:20px;border:1px solid var(--bdr);color:var(--inkl);background:transparent;cursor:pointer;transition:all .2s;white-space:nowrap;}
+.tag.on{background:var(--ink);color:var(--cream);border-color:var(--ink);}
+.tag:hover:not(.on){border-color:var(--gold);color:var(--gold);}
+.card{background:var(--white);border:1px solid var(--bdrl);border-radius:8px;}
+.section-card{background:var(--white);border:1px solid var(--bdrl);border-radius:10px;padding:20px 24px;margin-bottom:16px;}
+.dayb{border:1px solid var(--bdr);border-radius:6px;background:var(--white);cursor:pointer;transition:all .2s;padding:10px 12px;min-width:76px;text-align:center;}
+.dayb:hover{transform:translateY(-2px);box-shadow:0 4px 14px rgba(0,0,0,.07);}
+.lbl{font-size:11px;letter-spacing:2.5px;color:var(--gold);text-transform:uppercase;display:block;margin-bottom:5px;}
+.sublbl{font-size:11px;letter-spacing:1.5px;color:var(--inkf);text-transform:uppercase;display:block;margin-bottom:5px;}
+.pill{display:inline-flex;align-items:center;gap:5px;font-size:11px;padding:3px 10px;border-radius:20px;border:1px solid var(--bdrl);color:var(--inkf);}
+.remove-btn{background:none;border:none;cursor:pointer;color:var(--inkf);font-size:20px;line-height:1;padding:0 4px;transition:color .15s;}
+.remove-btn:hover{color:var(--rust);}
+.step-dot{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;font-family:'DM Mono',monospace;}
+.add-btn{display:flex;align-items:center;gap:8px;background:transparent;border:1px dashed var(--bdr);border-radius:6px;padding:10px 16px;cursor:pointer;color:var(--inkf);font-size:13px;width:100%;transition:all .2s;font-family:inherit;}
+.add-btn:hover{border-color:var(--gold);color:var(--gold);}
+.seg{background:var(--paper);border-radius:8px;padding:16px;margin-bottom:12px;}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px;}
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<!-- React + Babel via CDN — no build step needed -->
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+<script type="text/babel" data-presets="react">
+const { useState, useRef, useCallback, useEffect } = React;
+
+/* ══════════════════════════════════════════════════
+   ★  CONFIGURATION — fill these in before deploying
+══════════════════════════════════════════════════ */
+const ANTHROPIC_API_KEY = "YOUR_ANTHROPIC_API_KEY";
+const SB_URL            = "YOUR_SUPABASE_URL";         // https://xxx.supabase.co
+const SB_KEY            = "YOUR_SUPABASE_ANON_KEY";    // eyJhbGci...
+
+/* ══ SUPABASE ══ */
+const SB_OK = !SB_URL.startsWith("YOUR");
+async function dbSave(id, payload) {
+  if (!SB_OK) return;
+  await fetch(`${SB_URL}/rest/v1/trips`, {
+    method:"POST",
+    headers:{"Content-Type":"application/json",apikey:SB_KEY,Authorization:`Bearer ${SB_KEY}`,Prefer:"resolution=merge-duplicates"},
+    body:JSON.stringify({id,data:payload,updated_at:new Date().toISOString()})
+  });
+}
+async function dbLoad(id) {
+  if (!SB_OK) return null;
+  const r = await fetch(`${SB_URL}/rest/v1/trips?id=eq.${encodeURIComponent(id)}&select=data`,{headers:{apikey:SB_KEY,Authorization:`Bearer ${SB_KEY}`}});
+  const rows = await r.json();
+  return rows?.[0]?.data ?? null;
+}
+
+/* ══ ROUTING ══ */
+const getTripId  = () => { const m=window.location.hash.match(/^#\/trip\/([a-z0-9]+)$/i); return m?.[1]??null; };
+const setTripUrl = id => window.history.replaceState(null,"",`#/trip/${id}`);
+const clearUrl   = ()  => window.history.replaceState(null,"",window.location.pathname);
+const uid        = ()  => Math.random().toString(36).slice(2,11);
+
+/* ══ AI — routes through Netlify function to avoid CORS ══ */
+async function ai(messages, system="", maxTokens=3500) {
+  const body = {model:"claude-sonnet-4-20250514",max_tokens:maxTokens,messages};
+  if (system) body.system = system;
+  const r = await fetch("/.netlify/functions/claude", {
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify(body)
+  });
+  const d = await r.json();
+  return d.text ?? "";
+}
+
+async function generateItinerary(info, details) {
+  const nights = Math.max(1,Math.round((new Date(info.endDate)-new Date(info.startDate))/86400000));
+  const numDays = nights+1;
+  const flightBlock  = (details.flights||[]).map(f=>{
+    const legs=(f.legs||[]).map((l,i)=>`    Leg ${i+1}: ${l.from||"?"} → ${l.to||"?"} | Flight ${l.number||"?"} ${l.airline||""} | Dep ${l.depDate} ${l.depTime} | Arr ${l.arrDate} ${l.arrTime}`).join("\n");
+    return `  Booking conf: ${f.confirmation||"—"} | Class: ${f.class||"—"}\n${legs}`;
+  }).join("\n");
+  const hotelBlock   = (details.hotels||[]).map(h=>`  ${h.name||"Hotel"} in ${h.city||"?"}: Check-in ${h.checkin}, Check-out ${h.checkout} | Room: ${h.roomType||"—"} | Conf: ${h.confirmation||"—"} | Notes: ${h.notes||"—"}`).join("\n");
+  const carBlock     = (details.cars||[]).map(c=>`  ${c.company||"Car"} ${c.carType||""}: Pickup ${c.pickupDate} at ${c.pickupLocation||"?"}, Return ${c.returnDate} at ${c.returnLocation||"?"} | Conf: ${c.confirmation||"—"}`).join("\n");
+  const transferBlock= (details.transfers||[]).map(t=>`  ${t.type||"Transfer"}: ${t.from||"?"} → ${t.to||"?"} on ${t.date} ${t.time||""} | ${t.notes||""}`).join("\n");
+  const bookings = [flightBlock&&`FLIGHTS:\n${flightBlock}`,hotelBlock&&`HOTELS:\n${hotelBlock}`,carBlock&&`CAR RENTALS:\n${carBlock}`,transferBlock&&`TRANSFERS:\n${transferBlock}`,details.existing&&`OTHER:\n${details.existing}`].filter(Boolean).join("\n\n");
+  const text = await ai([{role:"user",content:
+`World-class travel planner. Build a precise ${numDays}-day itinerary integrating confirmed bookings exactly.
+Destination: ${info.destination} | Dates: ${info.startDate}→${info.endDate} | Travelers: ${info.travelers} | Style: ${info.style} | Budget: ${info.budget} | Interests: ${info.interests||"food, culture, sightseeing"} | Dietary: ${info.dietary||"none"}
+${bookings?`\nCONFIRMED BOOKINGS (use exact flight numbers, hotel names, confirmation numbers):\n${bookings}`:""}
+Return ONLY valid JSON array, no markdown:
+[{"id":<int>,"date":"<Jul 3>","dayName":"<Monday>","label":"<ARRIVE|EXPLORE|BEACH|etc>","headline":"<5-8 word title>","color":"<rich hex>","emoji":"<emoji>","places":["p1","p2"],"sections":[{"kind":"logistics|morning|afternoon|evening|dining","title":"Section title","icon":"emoji","items":[{"name":"...","time":"...","body":"2-3 vivid sentences.","tip":"insider tip","must":"dining: must-order","address":"real address","phone":"","url":"https://...","booking":"booking urgency"}]}]}]
+Logistics items use: [{"label":"Key","value":"Info"}]`
+  }],"",4500);
+  try { return JSON.parse(text.replace(/```json|```/g,"").trim()); }
+  catch { return null; }
+}
+
+async function editItem(item,request,ctx,dest) {
+  const text = await ai([{role:"user",content:`Travel expert for ${dest}.\nCurrent:\n${JSON.stringify(item,null,2)}\nContext: ${ctx}\nRequest: "${request}"\nReturn ONLY valid JSON, same fields. No markdown.`}],"",900);
+  try { return JSON.parse(text.replace(/```json|```/g,"").trim()); }
+  catch { return null; }
+}
+
+async function chatMsg(msg,trip,history) {
+  const summary=(trip.days||[]).map(d=>`${d.date}: ${d.headline}`).join("\n");
+  return await ai([...history,{role:"user",content:msg}],`Travel concierge for ${trip.destination} (${trip.startDate}–${trip.endDate}).\nItinerary:\n${summary}\nBe specific, warm, practical. Max 180 words.`,700);
+}
+
+async function analyzePhoto(b64,mime,trip) {
+  const places=(trip.days||[]).flatMap(d=>(d.places||[]).map(p=>`${d.date}: ${p}`)).join(", ");
+  const r=await fetch("/.netlify/functions/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
+    model:"claude-sonnet-4-20250514",max_tokens:600,
+    messages:[{role:"user",content:[
+      {type:"image",source:{type:"base64",media_type:mime,data:b64}},
+      {type:"text",text:`Photo from ${trip.destination}. Places: ${places}. Return ONLY JSON:\n{"dayId":<int|null>,"location":"<place>","landmark":"<or null>","caption":"<1-sentence first-person>","mood":"<golden|serene|dramatic|vibrant|mysterious|festive|intimate|wild>","journal":"<2-3 sentences>","tips":["t1","t2","t3"]}`}
+    ]}]
+  })});
+  const d=await r.json();
+  try { return JSON.parse((d.text||"{}").replace(/```json|```/g,"").trim()); }
+  catch { return {location:trip.destination,caption:"A beautiful moment.",mood:"golden",journal:"An unforgettable memory.",tips:[]}; }
+}
+
+/* ══ CONSTANTS ══ */
+const MOODS={golden:"#B8892A",serene:"#4A7055",dramatic:"#C0522A",vibrant:"#D4601A",mysterious:"#6B4A8C",festive:"#2D7AB5",intimate:"#A04060",wild:"#3A6B3A"};
+const STYLES=["Relaxed & Slow","Adventure & Active","Culture & History","Food & Wine","Luxury","Backpacker Budget","Family Friendly","Romantic Getaway"];
+const BUDGETS=["Under $100/day","$100–250/day","$250–500/day","$500+/day"];
+const EXAMPLES=[{dest:"Kyoto & Tokyo, Japan",emoji:"🇯🇵"},{dest:"Amalfi Coast, Italy",emoji:"🇮🇹"},{dest:"Patagonia, Argentina",emoji:"🇦🇷"},{dest:"Marrakech, Morocco",emoji:"🇲🇦"},{dest:"Bali, Indonesia",emoji:"🇮🇩"},{dest:"New Orleans, USA",emoji:"🇺🇸"}];
+const mkFlight=()=>({id:uid(),confirmation:"",class:"",legs:[{id:uid(),airline:"",number:"",from:"",to:"",depDate:"",depTime:"",arrDate:"",arrTime:""}]});
+const mkLeg=()=>({id:uid(),airline:"",number:"",from:"",to:"",depDate:"",depTime:"",arrDate:"",arrTime:""});
+const mkHotel=()=>({id:uid(),name:"",city:"",checkin:"",checkout:"",confirmation:"",roomType:"",notes:""});
+const mkTransfer=()=>({id:uid(),type:"Airport Transfer",from:"",to:"",date:"",time:"",notes:""});
+const mkCar=()=>({id:uid(),company:"",pickupDate:"",pickupLocation:"",returnDate:"",returnLocation:"",confirmation:"",carType:""});
+
+/* ══ UI ATOMS ══ */
+const L=({c})=><span className="lbl">{c}</span>;
+const SL=({c})=><span className="sublbl">{c}</span>;
+function Row({cols=2,children}){return <div className={cols===3?"grid3":"grid2"}>{children}</div>}
+function F({label,children}){return <div><SL c={label}/>{children}</div>}
+
+/* ══ ACTIVITY CARD ══ */
+function ActivityCard({item,color,ctx,dest,onUpdate}){
+  const [open,setOpen]=useState(false);
+  const [prompt,setPrompt]=useState("");
+  const [loading,setLoading]=useState(false);
+  const [flash,setFlash]=useState(false);
+  const submit=async()=>{
+    if(!prompt.trim())return;
+    setLoading(true);
+    const u=await editItem(item,prompt,ctx,dest);
+    setLoading(false);
+    if(u){onUpdate(u);setFlash(true);setTimeout(()=>setFlash(false),1400);}
+    setPrompt("");setOpen(false);
+  };
+  return(
+    <div style={{background:flash?`${color}0e`:"var(--white)",border:`1px solid ${flash?color:open?color+"55":"var(--bdrl)"}`,borderRadius:8,padding:"15px 18px",marginBottom:10,transition:"all .3s"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8,marginBottom:8}}>
+        <div style={{flex:1}}>
+          <div style={{fontSize:16,color:"var(--ink)",lineHeight:1.4}}>
+            {item.url?<a href={item.url} target="_blank" rel="noreferrer" style={{color:"var(--ink)",textDecoration:"none",borderBottom:`1px solid ${color}66`}}>{item.name} ↗</a>:item.name}
+          </div>
+          {item.time&&<div style={{fontSize:12,color,marginTop:3,fontFamily:"'DM Mono',monospace"}}>{item.time}</div>}
+        </div>
+        <button onClick={()=>setOpen(o=>!o)} style={{background:open?color:"transparent",border:`1px solid ${open?color:"var(--bdr)"}`,borderRadius:20,padding:"4px 12px",cursor:"pointer",fontSize:12,color:open?"var(--white)":"var(--inkf)",transition:"all .2s",flexShrink:0}}>✦ Edit</button>
+      </div>
+      {item.body&&<p style={{fontSize:15,color:"var(--inkl)",lineHeight:1.75,marginBottom:10}}>{item.body}</p>}
+      {item.must&&<div style={{background:`${color}0c`,border:`1px solid ${color}28`,borderRadius:6,padding:"8px 12px",marginBottom:10}}><div style={{fontSize:10,letterSpacing:2.5,color,textTransform:"uppercase",marginBottom:4}}>Must Order</div><div style={{fontSize:14,color:"var(--inkl)"}}>{item.must}</div></div>}
+      {item.tip&&<div style={{background:"var(--paper)",borderRadius:6,padding:"8px 12px",marginBottom:10}}><div style={{fontSize:10,letterSpacing:2,color:"var(--inkf)",textTransform:"uppercase",marginBottom:3}}>💡 Tip</div><div style={{fontSize:13,color:"var(--inkl)",lineHeight:1.65}}>{item.tip}</div></div>}
+      <div style={{display:"flex",gap:16,flexWrap:"wrap",fontSize:12,color:"var(--inkf)"}}>
+        {item.address&&<a href={`https://maps.google.com/?q=${encodeURIComponent(item.address)}`} target="_blank" rel="noreferrer" style={{color:"var(--inkf)",textDecoration:"none"}}>📍 {item.address}</a>}
+        {item.phone&&<a href={`tel:${item.phone}`} style={{color:"var(--inkf)",textDecoration:"none"}}>📞 {item.phone}</a>}
+      </div>
+      {item.booking&&<div style={{marginTop:10,background:"#fdf6ee",border:"1px solid #e8d5b0",borderRadius:6,padding:"8px 12px",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}><div style={{fontSize:13,color:"var(--rust)"}}>{item.booking}</div>{item.url&&<a href={item.url} target="_blank" rel="noreferrer" style={{fontSize:12,background:"var(--rust)",color:"var(--white)",textDecoration:"none",padding:"4px 12px",borderRadius:4}}>Book →</a>}</div>}
+      {open&&<div style={{marginTop:14,background:`${color}08`,border:`1px solid ${color}30`,borderRadius:8,padding:"14px 16px"}}>
+        <div style={{fontSize:11,letterSpacing:2,color,textTransform:"uppercase",marginBottom:6}}>✦ Ask AI to change this</div>
+        <div style={{fontSize:12,color:"var(--inkf)",marginBottom:10,lineHeight:1.6}}>Try: "swap for a beach walk" · "find a Michelin option" · "rainy day version"</div>
+        <div style={{display:"flex",gap:8}}>
+          <input className="inp" value={prompt} onChange={e=>setPrompt(e.target.value)} onKeyDown={e=>e.key==="Enter"&&submit()} placeholder="What would you like to change?"/>
+          <button className="btn-p" onClick={submit} disabled={loading||!prompt.trim()} style={{padding:"10px 16px",flexShrink:0}}>{loading?<span className="spin"/>:"Update"}</button>
+        </div>
+      </div>}
+    </div>
+  );
+}
+
+/* ══ LANDING ══ */
+function Landing({onStart}){
+  const [dest,setDest]=useState("");
+  return(
+    <div style={{minHeight:"100vh",background:"var(--cream)"}}>
+      <nav style={{padding:"18px 40px",display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:"1px solid var(--bdrl)",background:"var(--white)"}}>
+        <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,letterSpacing:-.5}}>Wayfarer <span style={{color:"var(--gold)",fontStyle:"italic"}}>✦</span></div>
+        <button className="btn-g" onClick={()=>onStart("")}>Plan a Trip →</button>
+      </nav>
+      <div style={{maxWidth:1000,margin:"0 auto",padding:"clamp(40px,7vw,90px) 40px 60px",display:"grid",gridTemplateColumns:"1fr 1fr",gap:"clamp(28px,4vw,72px)",alignItems:"center"}}>
+        <div className="fu">
+          <div style={{fontSize:11,letterSpacing:5,color:"var(--gold)",textTransform:"uppercase",marginBottom:18}}>AI Travel Planner</div>
+          <h1 style={{fontFamily:"'Playfair Display',serif",fontSize:"clamp(36px,4vw,58px)",fontWeight:400,lineHeight:1.1,letterSpacing:-1,marginBottom:20}}>
+            Every journey<br/>deserves a<br/><em style={{color:"var(--gold)"}}>perfect plan.</em>
+          </h1>
+          <p style={{fontSize:17,color:"var(--inkl)",lineHeight:1.85,marginBottom:30,fontWeight:300}}>
+            Add your flights, hotels, and bookings. AI weaves everything into a beautiful day-by-day itinerary — then edit anything by just asking.
+          </p>
+          <div style={{display:"flex",gap:10}}>
+            <input className="inp" value={dest} onChange={e=>setDest(e.target.value)} onKeyDown={e=>e.key==="Enter"&&onStart(dest)} placeholder="Where are you going?" style={{maxWidth:260,fontSize:16}}/>
+            <button className="btn-p" onClick={()=>onStart(dest)}>Start Planning</button>
+          </div>
+        </div>
+        <div className="fu" style={{display:"grid",gap:12,animationDelay:".1s"}}>
+          {[["✈️","Flight & Hotel Details","Enter flight numbers, hotel names, confirmation codes — AI uses them exactly."],
+            ["✦","AI Itineraries","Detailed day-by-day plans built around your real bookings."],
+            ["✎","Edit Anything","Click any activity and ask AI to change it however you like."],
+            ["🔗","Shareable Link","Your trip gets a unique URL the moment it's generated."]
+          ].map(([icon,title,desc])=>(
+            <div key={title} className="card" style={{padding:"14px 18px",display:"flex",gap:14,alignItems:"flex-start"}}>
+              <div style={{fontSize:18,flexShrink:0}}>{icon}</div>
+              <div><div style={{fontSize:15,marginBottom:3}}>{title}</div><div style={{fontSize:13,color:"var(--inkf)",lineHeight:1.6}}>{desc}</div></div>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div style={{borderTop:"1px solid var(--bdrl)",padding:"36px 40px",textAlign:"center"}}>
+        <div style={{fontSize:11,letterSpacing:4,color:"var(--inkf)",textTransform:"uppercase",marginBottom:18}}>Popular destinations</div>
+        <div style={{display:"flex",gap:10,flexWrap:"wrap",justifyContent:"center"}}>
+          {EXAMPLES.map(e=><button key={e.dest} className="btn-g" onClick={()=>onStart(e.dest)}>{e.emoji} {e.dest}</button>)}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ══ STEP 1: BASICS ══ */
+function StepBasics({data,onChange,onNext}){
+  const set=(k,v)=>onChange({...data,[k]:v});
+  const nights=data.startDate&&data.endDate?Math.max(0,Math.round((new Date(data.endDate)-new Date(data.startDate))/86400000)):0;
+  const ok=data.destination&&data.startDate&&data.endDate&&data.style&&data.budget&&nights>0;
+  return(
+    <div>
+      <div style={{marginBottom:24}}><L c="Destination *"/><input className="inp" value={data.destination} onChange={e=>set("destination",e.target.value)} placeholder="e.g. Algarve + Lisbon, Portugal" style={{fontSize:16}}/></div>
+      <Row><div><L c="Start Date *"/><input type="date" className="inp" value={data.startDate} onChange={e=>set("startDate",e.target.value)}/></div><div><L c="End Date *"/><input type="date" className="inp" value={data.endDate} onChange={e=>set("endDate",e.target.value)}/></div></Row>
+      {nights>0&&<div style={{textAlign:"center",fontSize:13,color:"var(--gold)",marginBottom:20}}>✦ {nights+1} days · {nights} nights</div>}
+      <div style={{marginBottom:24}}><L c="Travelers"/><input className="inp" value={data.travelers} onChange={e=>set("travelers",e.target.value)} placeholder="2 adults, couple, family of 4…"/></div>
+      <div style={{marginBottom:24}}><L c="Travel Style *"/><div style={{display:"flex",gap:8,flexWrap:"wrap",marginTop:6}}>{STYLES.map(s=><button key={s} className={`tag ${data.style===s?"on":""}`} onClick={()=>set("style",s)}>{s}</button>)}</div></div>
+      <div style={{marginBottom:24}}><L c="Budget *"/><div style={{display:"flex",gap:8,flexWrap:"wrap",marginTop:6}}>{BUDGETS.map(b=><button key={b} className={`tag ${data.budget===b?"on":""}`} onClick={()=>set("budget",b)}>{b}</button>)}</div></div>
+      <Row>
+        <div><L c="Interests & Must-Dos"/><input className="inp" value={data.interests} onChange={e=>set("interests",e.target.value)} placeholder="beaches, wine, Michelin dining…"/></div>
+        <div><L c="Dietary Notes"/><input className="inp" value={data.dietary} onChange={e=>set("dietary",e.target.value)} placeholder="vegetarian, no shellfish…"/></div>
+      </Row>
+      <button className="btn-p" onClick={onNext} disabled={!ok} style={{width:"100%",fontSize:16,padding:14,marginTop:8}}>Next: Trip Details →</button>
+    </div>
+  );
+}
+
+/* ══ FLIGHT ENTRY ══ */
+function FlightEntry({f,onChange,onRemove}){
+  const sf=(k,v)=>onChange({...f,[k]:v});
+  const updLeg=(id,k,v)=>onChange({...f,legs:f.legs.map(l=>l.id===id?{...l,[k]:v}:l)});
+  const addLeg=()=>onChange({...f,legs:[...f.legs,mkLeg()]});
+  const delLeg=(id)=>{if(f.legs.length>1)onChange({...f,legs:f.legs.filter(l=>l.id!==id)});};
+
+  // Summary: first leg origin → last leg dest
+  const first=f.legs[0]||{};
+  const last=f.legs[f.legs.length-1]||{};
+  const via=f.legs.length>2?f.legs.slice(1,-1).map(l=>l.to||"?").join(", "):"";
+  const summary=f.legs.length===1
+    ?`${first.from||"Origin"} → ${first.to||"Destination"}`
+    :`${first.from||"Origin"} → ${via?via+" → ":""}${last.to||"Destination"}`;
+
+  return(
+    <div className="seg">
+      {/* Header */}
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+        <div style={{fontSize:14,color:"var(--inkl)",display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+          <span>✈️</span>
+          <strong>{summary}</strong>
+          {f.legs.length>1&&<span className="pill">{f.legs.length} legs</span>}
+        </div>
+        <button className="remove-btn" onClick={onRemove}>×</button>
+      </div>
+
+      {/* Booking-level fields */}
+      <Row>
+        <F label="Class"><input className="inp inp-sm" value={f.class} onChange={e=>sf("class",e.target.value)} placeholder="Economy, Business…"/></F>
+        <F label="Confirmation #"><input className="inp inp-sm" value={f.confirmation} onChange={e=>sf("confirmation",e.target.value)} placeholder="ABC123"/></F>
+      </Row>
+
+      {/* Legs */}
+      {f.legs.map((l,i)=>(
+        <div key={l.id} style={{background:"var(--white)",border:"1px solid var(--bdrl)",borderRadius:6,padding:"12px 14px",marginBottom:8}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+            <div style={{fontSize:11,letterSpacing:2,color:"var(--gold)",textTransform:"uppercase"}}>
+              {f.legs.length===1?"Flight":i===0?"Outbound":i===f.legs.length-1?"Return":`Connection ${i}`}
+              {l.from&&l.to&&<span style={{color:"var(--inkf)",marginLeft:8,textTransform:"none",letterSpacing:0,fontSize:12}}>{l.from} → {l.to}</span>}
+            </div>
+            {f.legs.length>1&&<button className="remove-btn" onClick={()=>delLeg(l.id)} style={{fontSize:14}}>×</button>}
+          </div>
+          <Row cols={3}>
+            <F label="Airline"><input className="inp inp-sm" value={l.airline} onChange={e=>updLeg(l.id,"airline",e.target.value)} placeholder="United…"/></F>
+            <F label="Flight No."><input className="inp inp-sm" value={l.number} onChange={e=>updLeg(l.id,"number",e.target.value)} placeholder="UA 123"/></F>
+            <F label=""><div style={{height:4}}/></F>
+          </Row>
+          <Row>
+            <F label="From"><input className="inp inp-sm" value={l.from} onChange={e=>updLeg(l.id,"from",e.target.value)} placeholder="EWR – Newark"/></F>
+            <F label="To"><input className="inp inp-sm" value={l.to} onChange={e=>updLeg(l.id,"to",e.target.value)} placeholder="LIS – Lisbon"/></F>
+          </Row>
+          <Row>
+            <F label="Departure Date & Time">
+              <div style={{display:"flex",gap:6}}>
+                <input type="date" className="inp inp-sm" value={l.depDate} onChange={e=>updLeg(l.id,"depDate",e.target.value)} style={{flex:1}}/>
+                <input type="time" className="inp inp-sm" value={l.depTime} onChange={e=>updLeg(l.id,"depTime",e.target.value)} style={{width:100}}/>
+              </div>
+            </F>
+            <F label="Arrival Date & Time">
+              <div style={{display:"flex",gap:6}}>
+                <input type="date" className="inp inp-sm" value={l.arrDate} onChange={e=>updLeg(l.id,"arrDate",e.target.value)} style={{flex:1}}/>
+                <input type="time" className="inp inp-sm" value={l.arrTime} onChange={e=>updLeg(l.id,"arrTime",e.target.value)} style={{width:100}}/>
+              </div>
+            </F>
+          </Row>
+        </div>
+      ))}
+
+      <button className="add-btn" onClick={addLeg} style={{marginTop:4,fontSize:12,padding:"7px 12px"}}>
+        <span style={{fontSize:14}}>＋</span> Add another leg
+      </button>
+    </div>
+  );
+}
+
+/* ══ HOTEL ENTRY ══ */
+function HotelEntry({h,onChange,onRemove}){
+  const s=(k,v)=>onChange({...h,[k]:v});
+  return(
+    <div className="seg">
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+        <div style={{fontSize:14,color:"var(--inkl)",display:"flex",alignItems:"center",gap:8}}><span>🏨</span><strong>{h.name||"Hotel name"}</strong>{h.city&&<span style={{color:"var(--inkf)",fontSize:13}}>· {h.city}</span>}</div>
+        <button className="remove-btn" onClick={onRemove}>×</button>
+      </div>
+      <Row><F label="Hotel Name"><input className="inp inp-sm" value={h.name} onChange={e=>s("name",e.target.value)} placeholder="Iberostar Selection Lagos"/></F><F label="City / Location"><input className="inp inp-sm" value={h.city} onChange={e=>s("city",e.target.value)} placeholder="Lagos, Portugal"/></F></Row>
+      <Row><F label="Check-In Date"><input type="date" className="inp inp-sm" value={h.checkin} onChange={e=>s("checkin",e.target.value)}/></F><F label="Check-Out Date"><input type="date" className="inp inp-sm" value={h.checkout} onChange={e=>s("checkout",e.target.value)}/></F></Row>
+      <Row><F label="Room Type"><input className="inp inp-sm" value={h.roomType} onChange={e=>s("roomType",e.target.value)} placeholder="Deluxe King, Ocean View…"/></F><F label="Confirmation #"><input className="inp inp-sm" value={h.confirmation} onChange={e=>s("confirmation",e.target.value)} placeholder="ABC123"/></F></Row>
+      <F label="Notes"><input className="inp inp-sm" value={h.notes} onChange={e=>s("notes",e.target.value)} placeholder="Early check-in, pool access included…"/></F>
+    </div>
+  );
+}
+
+/* ══ CAR ENTRY ══ */
+function CarEntry({c,onChange,onRemove}){
+  const s=(k,v)=>onChange({...c,[k]:v});
+  return(
+    <div className="seg">
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+        <div style={{fontSize:14,color:"var(--inkl)",display:"flex",alignItems:"center",gap:8}}><span>🚙</span><strong>{c.company||"Car Rental"}</strong>{c.carType&&<span className="pill">{c.carType}</span>}</div>
+        <button className="remove-btn" onClick={onRemove}>×</button>
+      </div>
+      <Row><F label="Company"><input className="inp inp-sm" value={c.company} onChange={e=>s("company",e.target.value)} placeholder="Hertz, Enterprise…"/></F><F label="Car Type"><input className="inp inp-sm" value={c.carType} onChange={e=>s("carType",e.target.value)} placeholder="Economy, SUV…"/></F></Row>
+      <Row><F label="Pickup Date"><input type="date" className="inp inp-sm" value={c.pickupDate} onChange={e=>s("pickupDate",e.target.value)}/></F><F label="Pickup Location"><input className="inp inp-sm" value={c.pickupLocation} onChange={e=>s("pickupLocation",e.target.value)} placeholder="Lisbon Airport T1"/></F></Row>
+      <Row><F label="Return Date"><input type="date" className="inp inp-sm" value={c.returnDate} onChange={e=>s("returnDate",e.target.value)}/></F><F label="Return Location"><input className="inp inp-sm" value={c.returnLocation} onChange={e=>s("returnLocation",e.target.value)} placeholder="Faro Airport"/></F></Row>
+      <F label="Confirmation #"><input className="inp inp-sm" value={c.confirmation} onChange={e=>s("confirmation",e.target.value)} placeholder="ABC123"/></F>
+    </div>
+  );
+}
+
+/* ══ TRANSFER ENTRY ══ */
+function TransferEntry({t,onChange,onRemove}){
+  const s=(k,v)=>onChange({...t,[k]:v});
+  const TYPES=["Airport Transfer","Train","Ferry","Bus","Private Driver","Taxi","Other"];
+  return(
+    <div className="seg">
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+        <div style={{fontSize:14,color:"var(--inkl)",display:"flex",alignItems:"center",gap:8}}><span>🚗</span><strong>{t.type}</strong>{(t.from||t.to)&&<span style={{color:"var(--inkf)",fontSize:13}}>· {t.from}→{t.to}</span>}</div>
+        <button className="remove-btn" onClick={onRemove}>×</button>
+      </div>
+      <div style={{marginBottom:10}}><SL c="Type"/><div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{TYPES.map(tp=><button key={tp} className={`tag ${t.type===tp?"on":""}`} onClick={()=>s("type",tp)} style={{fontSize:10,padding:"3px 9px"}}>{tp}</button>)}</div></div>
+      <Row><F label="From"><input className="inp inp-sm" value={t.from} onChange={e=>s("from",e.target.value)} placeholder="Faro Airport"/></F><F label="To"><input className="inp inp-sm" value={t.to} onChange={e=>s("to",e.target.value)} placeholder="Lagos Hotel"/></F></Row>
+      <Row><F label="Date"><input type="date" className="inp inp-sm" value={t.date} onChange={e=>s("date",e.target.value)}/></F><F label="Time"><input type="time" className="inp inp-sm" value={t.time} onChange={e=>s("time",e.target.value)}/></F></Row>
+      <F label="Notes / Reference"><input className="inp inp-sm" value={t.notes} onChange={e=>s("notes",e.target.value)} placeholder="Driver: Miguel, Ref: XYZ…"/></F>
+    </div>
+  );
+}
+
+/* ══ STEP 2: DETAILS ══ */
+function StepDetails({data,onChange,onBack,onGenerate,loading,error,basics}){
+  const set=(k,v)=>onChange({...data,[k]:v});
+  const upd=(key,id,val)=>set(key,data[key].map(x=>x.id===id?val:x));
+  const del=(key,id)=>set(key,data[key].filter(x=>x.id!==id));
+  const Sec=({title,icon,children,onAdd,addLabel})=>(
+    <div className="section-card">
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:16}}><span style={{fontSize:20}}>{icon}</span><span style={{fontFamily:"'Playfair Display',serif",fontSize:18}}>{title}</span></div>
+      {children}
+      {onAdd&&<button className="add-btn" onClick={onAdd} style={{marginTop:4}}><span style={{fontSize:16}}>＋</span>{addLabel}</button>}
+    </div>
+  );
+  return(
+    <div>
+      <div style={{background:"#fdf6ee",border:"1px solid #e8d5b0",borderRadius:8,padding:"14px 18px",marginBottom:24,fontSize:14,color:"var(--inkl)",lineHeight:1.65}}>
+        <strong>Optional but powerful.</strong> Add confirmed bookings — AI places them exactly in your itinerary with correct dates, times, and confirmation numbers.
+      </div>
+      <Sec title="Flights" icon="✈️" onAdd={()=>set("flights",[...data.flights,mkFlight()])} addLabel="Add a Flight">
+        {!data.flights.length&&<p style={{fontSize:13,color:"var(--inkf)",fontStyle:"italic",marginBottom:12}}>Add inbound, outbound, and any connecting flights.</p>}
+        {data.flights.map(f=><FlightEntry key={f.id} f={f} onChange={v=>upd("flights",f.id,v)} onRemove={()=>del("flights",f.id)}/>)}
+      </Sec>
+      <Sec title="Hotels & Accommodation" icon="🏨" onAdd={()=>set("hotels",[...data.hotels,mkHotel()])} addLabel="Add a Hotel">
+        {!data.hotels.length&&<p style={{fontSize:13,color:"var(--inkf)",fontStyle:"italic",marginBottom:12}}>Add each place you're staying — one entry per location.</p>}
+        {data.hotels.map(h=><HotelEntry key={h.id} h={h} onChange={v=>upd("hotels",h.id,v)} onRemove={()=>del("hotels",h.id)}/>)}
+      </Sec>
+      <Sec title="Car Rentals" icon="🚙" onAdd={()=>set("cars",[...data.cars,mkCar()])} addLabel="Add a Car Rental">
+        {!data.cars.length&&<p style={{fontSize:13,color:"var(--inkf)",fontStyle:"italic",marginBottom:12}}>Add rental details if you're driving between destinations.</p>}
+        {data.cars.map(c=><CarEntry key={c.id} c={c} onChange={v=>upd("cars",c.id,v)} onRemove={()=>del("cars",c.id)}/>)}
+      </Sec>
+      <Sec title="Transfers & Transport" icon="🚗" onAdd={()=>set("transfers",[...data.transfers,mkTransfer()])} addLabel="Add a Transfer">
+        {!data.transfers.length&&<p style={{fontSize:13,color:"var(--inkf)",fontStyle:"italic",marginBottom:12}}>Airport pickups, trains, ferries, or private drivers.</p>}
+        {data.transfers.map(t=><TransferEntry key={t.id} t={t} onChange={v=>upd("transfers",t.id,v)} onRemove={()=>del("transfers",t.id)}/>)}
+      </Sec>
+      <div className="section-card">
+        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}><span style={{fontSize:20}}>📝</span><span style={{fontFamily:"'Playfair Display',serif",fontSize:18}}>Other Notes</span></div>
+        <textarea className="inp" value={data.existing||""} onChange={e=>set("existing",e.target.value)} rows={4} placeholder="Paste any other confirmations, tour bookings, or things you want included…" style={{resize:"vertical",lineHeight:1.65}}/>
+      </div>
+      {error&&<div style={{color:"var(--rust)",fontSize:14,padding:"10px 14px",background:"#fff5f5",border:"1px solid #fcc",borderRadius:6,marginBottom:16}}>{error}</div>}
+      <div style={{display:"flex",gap:10}}>
+        <button className="btn-g" onClick={onBack} style={{padding:"12px 20px"}}>← Back</button>
+        <button className="btn-p" onClick={onGenerate} disabled={loading} style={{flex:1,fontSize:16,padding:14}}>
+          {"✦ Generate Itinerary →"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ══ LOADING SCREEN ══ */
+function LoadingScreen({destination,nights}){
+  const [stepIdx,setStepIdx]=useState(0);
+  const [dots,setDots]=useState("");
+  const steps=[
+    `Mapping out ${nights} nights in ${destination}`,
+    "Researching neighbourhoods & local gems",
+    "Curating restaurants and must-order dishes",
+    "Scheduling flights, hotels & transfers",
+    "Adding insider tips and booking links",
+    "Weaving it all into your itinerary",
+    "Almost there — finishing touches…",
+  ];
+  useEffect(()=>{
+    const si=setInterval(()=>setStepIdx(i=>Math.min(i+1,steps.length-1)),4200);
+    const di=setInterval(()=>setDots(d=>d.length>=3?"":d+"."),480);
+    return()=>{clearInterval(si);clearInterval(di);};
+  },[]);
+  return(
+    <div style={{minHeight:"100vh",background:"var(--cream)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"40px 20px"}}>
+      <div style={{width:"100%",maxWidth:460,textAlign:"center"}}>
+        <div style={{position:"relative",width:64,height:64,margin:"0 auto 32px"}}>
+          <div style={{position:"absolute",inset:0,borderRadius:"50%",border:"3px solid var(--bdrl)"}}/>
+          <div style={{position:"absolute",inset:0,borderRadius:"50%",border:"3px solid transparent",borderTopColor:"var(--gold)",animation:"spin .9s linear infinite"}}/>
+          <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,color:"var(--gold)"}}>✦</div>
+        </div>
+        <div style={{fontFamily:"'Playfair Display',serif",fontSize:26,fontWeight:400,letterSpacing:"-.3px",marginBottom:6}}>Building your itinerary</div>
+        <div style={{fontSize:14,color:"var(--inkf)",marginBottom:40}}>{destination} · {nights} night{nights!==1?"s":""}</div>
+        <div style={{textAlign:"left",display:"inline-block",minWidth:300}}>
+          {steps.map((s,i)=>{
+            const done=i<stepIdx,active=i===stepIdx;
+            return(
+              <div key={i} style={{display:"flex",alignItems:"center",gap:12,marginBottom:14,opacity:i>stepIdx?0.2:1,transition:"opacity .6s"}}>
+                <div style={{width:22,height:22,borderRadius:"50%",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,background:done?"var(--sage)":active?"var(--gold)":"var(--paper)",border:`2px solid ${done?"var(--sage)":active?"var(--gold)":"var(--bdr)"}`,transition:"all .4s"}}>
+                  {done&&<span style={{color:"#fff",fontSize:10,lineHeight:1}}>✓</span>}
+                </div>
+                <div style={{fontSize:14,color:done?"var(--sage)":active?"var(--ink)":"var(--inkf)",fontWeight:active?500:400,transition:"color .4s"}}>
+                  {active?s+dots:s}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <div style={{marginTop:36,fontSize:12,color:"var(--inkf)",fontStyle:"italic"}}>This usually takes 20–35 seconds</div>
+      </div>
+    </div>
+  );
+}
+
+/* ══ BUILD FORM ══ */
+function BuildForm({prefill,onGenerate}){
+  const [step,setStep]=useState(1);
+  const [basics,setBasics]=useState({destination:prefill||"",startDate:"",endDate:"",travelers:"2 adults",style:"",budget:"",interests:"",dietary:""});
+  const [details,setDetails]=useState({flights:[],hotels:[],cars:[],transfers:[],existing:""});
+  const [loading,setLoading]=useState(false);
+  const [error,setError]=useState("");
+
+  const nights=basics.startDate&&basics.endDate?Math.max(0,Math.round((new Date(basics.endDate)-new Date(basics.startDate))/86400000)):0;
+
+  const generate=async()=>{
+    if(ANTHROPIC_API_KEY==="YOUR_ANTHROPIC_API_KEY"){setError("Add your Anthropic API key at the top of this HTML file.");return;}
+    setLoading(true);setError("");
+    const days=await generateItinerary(basics,details);
+    if(!days){setError("Couldn't generate itinerary — check your API key and try again.");setLoading(false);return;}
+    const id=uid();
+    const numDays=Math.round((new Date(basics.endDate)-new Date(basics.startDate))/86400000)+1;
+    const trip={...basics,id,days,photos:[],details,numDays,createdAt:new Date().toISOString()};
+    await dbSave(id,trip);
+    setTripUrl(id);
+    setLoading(false);
+    onGenerate(trip);
+  };
+
+  if(loading) return <LoadingScreen destination={basics.destination} nights={nights}/>;
+
+  const STEPS=[{n:1,l:"Trip Basics"},{n:2,l:"Details & Bookings"},{n:3,l:"Itinerary"}];
+  return(
+    <div style={{minHeight:"100vh",background:"var(--cream)",display:"flex",flexDirection:"column",alignItems:"center",padding:"40px 20px"}}>
+      <div style={{width:"100%",maxWidth:660}} className="fu">
+        <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:0,marginBottom:36}}>
+          {STEPS.map((s,i)=>(
+            <div key={s.n} style={{display:"flex",alignItems:"center"}}>
+              <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4,cursor:s.n<step?"pointer":"default"}} onClick={()=>s.n<step&&setStep(s.n)}>
+                <div className="step-dot" style={{background:step>=s.n?"var(--ink)":"var(--paper)",border:`2px solid ${step>=s.n?"var(--ink)":"var(--bdr)"}`,color:step>=s.n?"var(--cream)":"var(--inkf)"}}>{step>s.n?"✓":s.n}</div>
+                <div style={{fontSize:10,letterSpacing:1,color:step>=s.n?"var(--inkl)":"var(--inkf)",textTransform:"uppercase",whiteSpace:"nowrap"}}>{s.l}</div>
+              </div>
+              {i<STEPS.length-1&&<div style={{width:56,height:1,background:step>s.n?"var(--gold)":"var(--bdrl)",margin:"0 8px",marginBottom:18}}/>}
+            </div>
+          ))}
+        </div>
+        <div style={{textAlign:"center",marginBottom:28}}>
+          <div style={{fontFamily:"'Playfair Display',serif",fontSize:28,letterSpacing:-.3,marginBottom:6}}>{step===1?"Where are you going?":"What's already booked?"}</div>
+          <div style={{fontSize:14,color:"var(--inkf)"}}>{step===1?"Start with the basics — add booking details next.":"These feed directly into your AI-generated itinerary."}</div>
+        </div>
+        <div className="card" style={{padding:"32px 36px"}}>
+          {step===1&&<StepBasics data={basics} onChange={setBasics} onNext={()=>setStep(2)}/>}
+          {step===2&&<StepDetails data={details} onChange={setDetails} basics={basics} onBack={()=>setStep(1)} onGenerate={generate} loading={loading} error={error}/>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ══ TRIP VIEW ══ */
+function TripView({trip:init,onNewTrip}){
+  const [trip]=useState(init);
+  const [days,setDays]=useState(init.days||[]);
+  const [photos,setPhotos]=useState(init.photos||[]);
+  const [tab,setTab]=useState("itinerary");
+  const [dayIdx,setDayIdx]=useState(0);
+  const [chatOpen,setChatOpen]=useState(false);
+  const [chatMsgs,setChatMsgs]=useState([{role:"assistant",content:`Welcome! I know your full ${trip.destination} itinerary including your confirmed bookings. Ask me anything.`}]);
+  const [chatIn,setChatIn]=useState("");
+  const [chatLoading,setChatLoading]=useState(false);
+  const [photoDay,setPhotoDay]=useState(null);
+  const [selPhoto,setSelPhoto]=useState(null);
+  const [dragging,setDragging]=useState(false);
+  const [copied,setCopied]=useState(false);
+  const [saveStatus,setSaveStatus]=useState("saved");
+  const chatBot=useRef();
+  const fileIn=useRef();
+
+  useEffect(()=>{
+    setSaveStatus("saving");
+    const t=setTimeout(async()=>{
+      try{await dbSave(trip.id,{...trip,days,photos});setSaveStatus("saved");}
+      catch{setSaveStatus("error");}
+    },1500);
+    return()=>clearTimeout(t);
+  },[days,photos]);
+
+  useEffect(()=>{chatBot.current?.scrollIntoView({behavior:"smooth"});},[chatMsgs]);
+
+  const updateItem=useCallback((dayId,si,ii,val)=>{
+    setDays(p=>p.map(d=>d.id!==dayId?d:{...d,sections:d.sections.map((s,_si)=>_si!==si?s:{...s,items:s.items.map((it,_ii)=>_ii!==ii?it:val)})}));
+  },[]);
+
+  const sendChat=async()=>{
+    if(!chatIn.trim()||chatLoading)return;
+    const msg=chatIn;setChatIn("");setChatLoading(true);
+    setChatMsgs(p=>[...p,{role:"user",content:msg}]);
+    const reply=await chatMsg(msg,{...trip,days},[...chatMsgs,{role:"user",content:msg}].map(m=>({role:m.role,content:m.content})));
+    setChatMsgs(p=>[...p,{role:"assistant",content:reply}]);
+    setChatLoading(false);
+  };
+
+  const processFile=useCallback(async(file)=>{
+    if(!file.type.startsWith("image/"))return;
+    const url=URL.createObjectURL(file);const id=uid();
+    setPhotos(p=>[...p,{id,url,loading:true}]);
+    const b64=await new Promise(res=>{const r=new FileReader();r.onload=()=>res(r.result.split(",")[1]);r.readAsDataURL(file);});
+    try{const info=await analyzePhoto(b64,file.type,{...trip,days});setPhotos(p=>p.map(ph=>ph.id!==id?ph:{...ph,loading:false,...info}));}
+    catch{setPhotos(p=>p.map(ph=>ph.id!==id?ph:{...ph,loading:false,location:trip.destination,caption:"A beautiful moment.",mood:"golden"}));}
+  },[trip,days]);
+
+  const onDrop=useCallback(async e=>{e.preventDefault();setDragging(false);for(const f of Array.from(e.dataTransfer.files).filter(f=>f.type.startsWith("image/")))await processFile(f);},[processFile]);
+  const share=()=>{navigator.clipboard.writeText(window.location.href).then(()=>{setCopied(true);setTimeout(()=>setCopied(false),2000);});};
+
+  const cur=days[dayIdx]||{};const color=cur.color||"#B8892A";
+  const filteredPhotos=photoDay?photos.filter(p=>p.dayId===photoDay):photos;
+  const TABS=[["itinerary","🗺 Itinerary"],["details","🧳 Trip Details"],["photos",`📸 Photos${photos.length?` (${photos.length})`:""}`],["upload","＋ Photos"]];
+
+  return(
+    <div style={{minHeight:"100vh",background:"var(--cream)"}}>
+      <div style={{background:"var(--white)",borderBottom:"1px solid var(--bdrl)",position:"sticky",top:0,zIndex:50}}>
+        <div style={{maxWidth:960,margin:"0 auto",padding:"0 24px"}}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:10,padding:"12px 0 0"}}>
+            <div>
+              <div style={{display:"flex",alignItems:"center",gap:10}}>
+                <button onClick={onNewTrip} style={{background:"none",border:"none",cursor:"pointer",fontSize:13,color:"var(--inkf)"}}>← Wayfarer</button>
+                <span style={{color:"var(--bdr)"}}>·</span>
+                <span style={{fontSize:12,fontFamily:"'DM Mono',monospace",color:saveStatus==="saved"?"var(--sage)":saveStatus==="saving"?"var(--inkf)":"var(--rust)"}}>
+                  {saveStatus==="saved"?"✓ Saved":saveStatus==="saving"?"Saving…":"⚠ Save failed"}
+                </span>
+              </div>
+              <h1 style={{fontFamily:"'Playfair Display',serif",fontSize:"clamp(16px,2.2vw,22px)",fontWeight:400,letterSpacing:-.3,marginTop:4}}>
+                {trip.destination} <span style={{color:"var(--gold)",fontStyle:"italic"}}>— {trip.numDays} days</span>
+              </h1>
+            </div>
+            <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+              <button onClick={share} className="btn-g" style={{fontSize:12}}>{copied?"✓ Copied!":"🔗 Share Trip"}</button>
+              <button onClick={()=>setChatOpen(o=>!o)} style={{background:chatOpen?"var(--ink)":"transparent",border:`1px solid ${chatOpen?"var(--ink)":"var(--bdr)"}`,borderRadius:4,padding:"8px 14px",cursor:"pointer",fontSize:12,color:chatOpen?"var(--cream)":"var(--inkl)",transition:"all .2s"}}>✦ AI Assistant</button>
+              <button onClick={onNewTrip} className="btn-g" style={{fontSize:12}}>＋ New Trip</button>
+            </div>
+          </div>
+          <div style={{display:"flex",gap:8,padding:"8px 0 0",flexWrap:"wrap"}}>
+            {[trip.startDate+"→"+trip.endDate,trip.travelers,trip.style,trip.budget].filter(Boolean).map(t=><span key={t} className="pill">{t}</span>)}
+          </div>
+          <div style={{display:"flex",gap:0,marginTop:8,overflowX:"auto",scrollbarWidth:"none"}}>
+            {TABS.map(([id,label])=>(
+              <button key={id} onClick={()=>setTab(id)} style={{flexShrink:0,background:"none",border:"none",cursor:"pointer",padding:"10px 18px",fontSize:13,color:tab===id?"var(--ink)":"var(--inkf)",borderBottom:tab===id?"2px solid var(--gold)":"2px solid transparent",transition:"color .2s"}}>{label}</button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {chatOpen&&(
+        <div style={{background:"var(--white)",borderBottom:"1px solid var(--bdrl)"}}>
+          <div style={{maxWidth:960,margin:"0 auto",padding:"16px 24px"}}>
+            <div style={{border:"1px solid var(--bdrl)",borderRadius:10,overflow:"hidden"}}>
+              <div style={{padding:"12px 16px",maxHeight:230,overflowY:"auto"}}>
+                {chatMsgs.map((m,i)=>(
+                  <div key={i} style={{display:"flex",gap:10,marginBottom:10,justifyContent:m.role==="user"?"flex-end":"flex-start"}}>
+                    {m.role==="assistant"&&<div style={{fontSize:14,flexShrink:0,marginTop:2,color:"var(--gold)"}}>✦</div>}
+                    <div style={{maxWidth:"80%",background:m.role==="user"?"var(--paper)":"var(--cream)",border:"1px solid var(--bdrl)",borderRadius:10,padding:"9px 14px",fontSize:14,color:"var(--inkl)",lineHeight:1.65}}>{m.content}</div>
+                  </div>
+                ))}
+                {chatLoading&&<div style={{display:"flex",gap:10}}><div style={{color:"var(--gold)"}}>✦</div><div style={{background:"var(--cream)",border:"1px solid var(--bdrl)",borderRadius:10,padding:"9px 14px",fontSize:14,color:"var(--inkf)"}}>Thinking…</div></div>}
+                <div ref={chatBot}/>
+              </div>
+              <div style={{borderTop:"1px solid var(--bdrl)",padding:"10px 12px",display:"flex",gap:8,background:"var(--paper)"}}>
+                <input className="inp" value={chatIn} onChange={e=>setChatIn(e.target.value)} onKeyDown={e=>e.key==="Enter"&&sendChat()} placeholder={`Ask anything about your ${trip.destination} trip…`} style={{background:"var(--white)",fontSize:14}}/>
+                <button className="btn-p" onClick={sendChat} disabled={chatLoading||!chatIn.trim()} style={{padding:"10px 16px"}}>Send</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div style={{maxWidth:960,margin:"0 auto",padding:"28px 24px"}}>
+
+        {tab==="itinerary"&&(
+          <div>
+            <div style={{display:"flex",gap:8,overflowX:"auto",paddingBottom:16,marginBottom:24,scrollbarWidth:"none"}}>
+              {days.map((d,i)=>(
+                <button key={i} className="dayb" onClick={()=>setDayIdx(i)} style={{background:dayIdx===i?d.color||"var(--gold)":"var(--white)",borderColor:dayIdx===i?d.color||"var(--gold)":"var(--bdr)"}}>
+                  <div style={{fontSize:20,marginBottom:3}}>{d.emoji||"📅"}</div>
+                  <div style={{fontSize:11,fontFamily:"'DM Mono',monospace",color:dayIdx===i?"#fff":"var(--inkf)",letterSpacing:.4}}>{(d.date||"").replace(/[A-Za-z]+ /,"")}</div>
+                  <div style={{fontSize:9,color:dayIdx===i?"rgba(255,255,255,.8)":"var(--inkf)",textTransform:"uppercase",letterSpacing:.5,marginTop:2}}>{d.label||""}</div>
+                </button>
+              ))}
+            </div>
+            <div style={{background:`${color}0c`,border:`1px solid ${color}28`,borderRadius:12,padding:"20px 24px",marginBottom:24}}>
+              <div style={{fontSize:11,letterSpacing:3.5,color,textTransform:"uppercase",marginBottom:6,fontFamily:"'DM Mono',monospace"}}>{cur.date} · {cur.dayName}</div>
+              <h2 style={{fontFamily:"'Playfair Display',serif",fontSize:"clamp(18px,2.5vw,26px)",fontWeight:400,letterSpacing:-.3}}>{cur.headline}</h2>
+            </div>
+            {(cur.sections||[]).map((sec,si)=>(
+              <div key={si} style={{marginBottom:24}}>
+                <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12,paddingBottom:8,borderBottom:"1px solid var(--bdrl)"}}>
+                  <span style={{fontSize:16}}>{sec.icon}</span>
+                  <div style={{fontSize:11,letterSpacing:3,color:"var(--inkf)",textTransform:"uppercase"}}>{sec.title}</div>
+                </div>
+                {sec.kind==="logistics"?(
+                  <div className="card" style={{padding:"16px 20px"}}>
+                    {(sec.items||[]).map((item,ii)=>(
+                      <div key={ii} style={{display:"flex",gap:14,marginBottom:ii<sec.items.length-1?10:0,paddingBottom:ii<sec.items.length-1?10:0,borderBottom:ii<sec.items.length-1?"1px solid var(--bdrl)":"none"}}>
+                        <div style={{fontSize:12,color:"var(--inkf)",minWidth:110,flexShrink:0,paddingTop:1}}>{item.label}</div>
+                        <div style={{fontSize:14,color:"var(--inkl)",lineHeight:1.55}}>{item.value}</div>
+                      </div>
+                    ))}
+                  </div>
+                ):(
+                  (sec.items||[]).map((item,ii)=>(
+                    <ActivityCard key={ii} item={item} color={color} ctx={`${cur.date} ${cur.dayName} — ${sec.title}`} dest={trip.destination} onUpdate={val=>updateItem(cur.id,si,ii,val)}/>
+                  ))
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {tab==="details"&&(
+          <div>
+            <div style={{marginBottom:24}}><div style={{fontFamily:"'Playfair Display',serif",fontSize:24,marginBottom:6}}>Trip Details</div><div style={{fontSize:14,color:"var(--inkf)"}}>Confirmed bookings used to build this itinerary.</div></div>
+            {(trip.details?.flights||[]).length>0&&(
+              <div className="section-card">
+                <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:16}}><span style={{fontSize:20}}>✈️</span><span style={{fontFamily:"'Playfair Display',serif",fontSize:18}}>Flights</span></div>
+                {trip.details.flights.map(f=>{
+                  const legs=f.legs||[];
+                  const first=legs[0]||{};const last=legs[legs.length-1]||{};
+                  const summary=legs.length<=1?`${first.from||"?"} → ${first.to||"?"}`:`${first.from||"?"} → ${last.to||"?"}`;
+                  return(
+                    <div key={f.id} style={{background:"var(--paper)",borderRadius:8,padding:"14px 16px",marginBottom:10}}>
+                      <div style={{display:"flex",justifyContent:"space-between",flexWrap:"wrap",gap:8,marginBottom:legs.length>1?10:0}}>
+                        <div><div style={{fontSize:16,marginBottom:4}}>{summary}</div><div style={{display:"flex",gap:8,fontSize:12,color:"var(--inkf)",flexWrap:"wrap"}}>{f.class&&<span>{f.class}</span>}{legs.length>1&&<span className="pill">{legs.length} legs</span>}</div></div>
+                        {f.confirmation&&<div style={{textAlign:"right",fontSize:12,color:"var(--inkf)"}}>Conf: <strong>{f.confirmation}</strong></div>}
+                      </div>
+                      {legs.length>1&&legs.map((l,i)=>(
+                        <div key={l.id} style={{display:"flex",gap:10,alignItems:"center",fontSize:13,color:"var(--inkl)",padding:"6px 0",borderTop:"1px solid var(--bdrl)"}}>
+                          <span style={{fontSize:11,color:"var(--gold)",minWidth:20,fontFamily:"'DM Mono',monospace"}}>{i+1}</span>
+                          <span style={{flex:1}}>{l.from} → {l.to}</span>
+                          {l.number&&<span className="pill">{l.airline} {l.number}</span>}
+                          <span style={{color:"var(--inkf)",fontSize:12}}>{l.depDate} {l.depTime}</span>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            {(trip.details?.hotels||[]).length>0&&(<div className="section-card"><div style={{display:"flex",alignItems:"center",gap:10,marginBottom:16}}><span style={{fontSize:20}}>🏨</span><span style={{fontFamily:"'Playfair Display',serif",fontSize:18}}>Hotels</span></div>{trip.details.hotels.map(h=>(<div key={h.id} style={{background:"var(--paper)",borderRadius:8,padding:"14px 16px",marginBottom:10}}><div style={{display:"flex",justifyContent:"space-between",flexWrap:"wrap",gap:8}}><div><div style={{fontSize:16,marginBottom:4}}>{h.name}</div><div style={{fontSize:13,color:"var(--inkf)"}}>{h.city}{h.roomType&&` · ${h.roomType}`}</div></div><div style={{textAlign:"right"}}><div style={{fontSize:13,color:"var(--inkl)"}}>Check-in: {h.checkin}</div><div style={{fontSize:13}}>Check-out: {h.checkout}</div>{h.confirmation&&<div style={{fontSize:12,color:"var(--inkf)",marginTop:3}}>Conf: <strong>{h.confirmation}</strong></div>}</div></div></div>))}</div>)}
+            {!trip.details?.flights?.length&&!trip.details?.hotels?.length&&<div style={{textAlign:"center",padding:"60px 20px",color:"var(--inkf)"}}><div style={{fontSize:40,marginBottom:12}}>🧳</div><div style={{fontSize:16}}>No booking details saved for this trip.</div></div>}
+          </div>
+        )}
+
+        {tab==="photos"&&(
+          <div>
+            {photos.length>0&&(<div style={{display:"flex",gap:8,overflowX:"auto",paddingBottom:14,marginBottom:20,scrollbarWidth:"none"}}><button onClick={()=>setPhotoDay(null)} className={`tag ${!photoDay?"on":""}`}>All ({photos.length})</button>{days.filter(d=>photos.some(p=>p.dayId===d.id)).map(d=>(<button key={d.id} onClick={()=>setPhotoDay(d.id)} className={`tag ${photoDay===d.id?"on":""}`} style={photoDay===d.id?{background:d.color,borderColor:d.color}:{}}>{d.emoji} {d.date}</button>))}</div>)}
+            {filteredPhotos.length===0?(<div style={{textAlign:"center",padding:"80px 20px"}}><div style={{fontSize:52,marginBottom:16}}>📸</div><div style={{fontFamily:"'Playfair Display',serif",fontSize:22,marginBottom:8}}>No photos yet</div><div style={{fontSize:15,color:"var(--inkf)",marginBottom:28}}>Upload your trip memories — AI tags and organizes them by day.</div><button className="btn-p" onClick={()=>setTab("upload")}>Add Photos →</button></div>):(
+              <div style={{columns:"3 200px",gap:10}}>
+                {filteredPhotos.map(p=>{const d=days.find(x=>x.id===p.dayId);return(<div key={p.id} className="card" onClick={()=>setSelPhoto(p)} style={{breakInside:"avoid",marginBottom:10,cursor:"pointer",overflow:"hidden",borderRadius:8}}><div style={{position:"relative"}}><img src={p.url} alt="" style={{width:"100%",display:"block",opacity:p.loading?.5:1}}/>{p.loading&&<div style={{position:"absolute",inset:0,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",background:"rgba(255,255,255,.7)"}}><span className="spin"/><div style={{fontSize:11,color:"var(--gold)",marginTop:8,letterSpacing:2}}>ANALYZING</div></div>}{!p.loading&&d&&<div style={{position:"absolute",top:8,left:8,background:(d.color||"var(--gold)")+"ee",borderRadius:4,padding:"2px 8px",fontSize:11,color:"#fff"}}>{d.emoji} {d.date}</div>}</div>{!p.loading&&<div style={{padding:"10px 12px"}}>{p.location&&<div style={{fontSize:12,color:"var(--gold)",marginBottom:3}}>📍 {p.location}</div>}{p.caption&&<div style={{fontSize:13,color:"var(--inkl)",lineHeight:1.55,fontStyle:"italic"}}>"{p.caption}"</div>}</div>}</div>);})}
+              </div>
+            )}
+          </div>
+        )}
+
+        {tab==="upload"&&(
+          <div>
+            <div onDragOver={e=>{e.preventDefault();setDragging(true);}} onDragLeave={()=>setDragging(false)} onDrop={onDrop} onClick={()=>fileIn.current.click()} style={{border:`2px dashed ${dragging?"var(--gold)":"var(--bdr)"}`,borderRadius:16,padding:"56px 40px",textAlign:"center",cursor:"pointer",background:dragging?"#fdf6ee":"var(--white)",transition:"all .3s",marginBottom:28}}>
+              <div style={{fontSize:48,marginBottom:14}}>📸</div>
+              <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,marginBottom:6}}>Drop photos here</div>
+              <div style={{fontSize:14,color:"var(--inkf)",marginBottom:18}}>or click to browse · multiple at once</div>
+              <div style={{display:"flex",gap:10,justifyContent:"center",flexWrap:"wrap"}}>{["📍 Auto-tagged by day","✍️ AI captions","🏛 Landmark ID","💡 Nearby tips"].map(f=><span key={f} style={{fontSize:12,color:"var(--inkf)",background:"var(--paper)",padding:"4px 12px",borderRadius:20,border:"1px solid var(--bdrl)"}}>{f}</span>)}</div>
+              <input ref={fileIn} type="file" accept="image/*" multiple style={{display:"none"}} onChange={e=>{Array.from(e.target.files).forEach(processFile);e.target.value="";}}/>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {selPhoto&&(
+        <div onClick={()=>setSelPhoto(null)} style={{position:"fixed",inset:0,background:"rgba(28,24,20,.88)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--white)",borderRadius:16,overflow:"hidden",maxWidth:700,width:"100%",maxHeight:"90vh",overflowY:"auto"}}>
+            <div style={{position:"relative"}}><img src={selPhoto.url} alt="" style={{width:"100%",maxHeight:380,objectFit:"cover",display:"block"}}/><button onClick={()=>setSelPhoto(null)} style={{position:"absolute",top:12,right:12,background:"rgba(0,0,0,.6)",border:"none",color:"#fff",borderRadius:"50%",width:30,height:30,cursor:"pointer",fontSize:15}}>✕</button></div>
+            <div style={{padding:"20px 24px"}}>
+              {selPhoto.caption&&<p style={{fontFamily:"'Playfair Display',serif",fontSize:18,fontStyle:"italic",lineHeight:1.6,marginBottom:14}}>"{selPhoto.caption}"</p>}
+              {selPhoto.journal&&<p style={{fontSize:14,color:"var(--inkl)",lineHeight:1.85,marginBottom:16}}>{selPhoto.journal}</p>}
+              {selPhoto.tips?.length>0&&<div style={{background:"var(--paper)",borderRadius:10,padding:"14px 16px"}}><div style={{fontSize:10,letterSpacing:3,color:"var(--gold)",textTransform:"uppercase",marginBottom:10}}>💡 Nearby Tips</div>{selPhoto.tips.map((t,i)=><div key={i} style={{display:"flex",gap:10,marginBottom:8}}><div style={{color:"var(--gold)"}}>→</div><div style={{fontSize:14,color:"var(--inkl)",lineHeight:1.65}}>{t}</div></div>)}</div>}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ══ ROOT ══ */
+function App(){
+  const [view,setView]=useState("loading");
+  const [prefill,setPrefill]=useState("");
+  const [trip,setTrip]=useState(null);
+
+  useEffect(()=>{
+    const id=getTripId();
+    if(id){(async()=>{const data=await dbLoad(id);if(data){setTrip(data);setView("trip");}else{clearUrl();setView("landing");}})();}
+    else setView("landing");
+  },[]);
+
+  useEffect(()=>{
+    const fn=()=>{if(!getTripId()){setView("landing");setTrip(null);}};
+    window.addEventListener("hashchange",fn);
+    return()=>window.removeEventListener("hashchange",fn);
+  },[]);
+
+  if(view==="loading")return(<div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"var(--cream)"}}><div style={{textAlign:"center"}}><span className="spin" style={{width:24,height:24,borderWidth:3}}/><div style={{marginTop:14,fontSize:14,color:"var(--inkf)"}}>Loading…</div></div></div>);
+  if(view==="landing")return <Landing onStart={d=>{setPrefill(d);setView("form");}}/>;
+  if(view==="form")   return <BuildForm prefill={prefill} onGenerate={t=>{setTrip(t);setView("trip");}}/>;
+  if(view==="trip")   return <TripView trip={trip} onNewTrip={()=>{clearUrl();setTrip(null);setView("landing");}}/>;
+  return null;
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
